@@ -6,6 +6,8 @@ extends RefCounted
 enum Tipo { FOCO, ACEIRO, PIPA, BRIGADA }
 
 signal brigada_chegou(centro: Vector2i, apagadas: int)
+signal pipa_usada(centro: Vector2i, apagadas: int)
+signal brigada_chamada(centro: Vector2i)
 
 ## Uma chamada à brigada que ainda não chegou.
 class Chamada:
@@ -79,7 +81,9 @@ func usar_pipa(celula: Vector2i) -> bool:
 		return false
 	cargas_pipa -= 1
 	pipas_usadas += 1
-	apagadas_pipa += sim.molhar_area(celula, config.raio_pipa, config.passos_molhada)
+	var n := sim.molhar_area(celula, config.raio_pipa, config.passos_molhada)
+	apagadas_pipa += n
+	pipa_usada.emit(celula, n)
 	return true
 
 
@@ -92,6 +96,7 @@ func chamar_brigada(celula: Vector2i) -> bool:
 	chamada.centro = celula
 	chamada.passo_chegada = sim.passo + config.atraso_brigada
 	chamadas_pendentes.append(chamada)
+	brigada_chamada.emit(celula)
 	return true
 
 

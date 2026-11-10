@@ -14,12 +14,19 @@ var ferramentas: Ferramentas
 var textura: Texture2D
 var ferramenta: Ferramentas.Tipo = Ferramentas.Tipo.FOCO
 var interativo := true
+var veiculos: Veiculos
+## Fração (0..1) do passo atual já transcorrida, para os veículos andarem sem trancos.
+var progresso_passo := 0.0
+## Tempo do jogo em segundos (segue o --fixed-fps nas gravações, ao contrário do relógio).
+var tempo := 0.0
 ## Zonas de risco (centros) e o raio delas, em células.
 var zonas: Array[Vector2i] = []
 var raio_zona := 9
 ## Na preparação as zonas ficam destacadas; durante o incêndio, mais discretas.
 var destacar_zonas := true
 
+var _terreno: TextureRect
+var _material: ShaderMaterial
 var _arrastando := false
 var _ultima := Vector2i(-1, -1)
 var _mouse := Vector2i(-1, -1)
@@ -27,13 +34,37 @@ var _mouse := Vector2i(-1, -1)
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# O mapa em si é desenhado pelo shader numa TextureRect atrás dos marcadores.
+	_material = ShaderMaterial.new()
+	_material.shader = preload("res://recursos/mapa.gdshader")
+	_terreno = TextureRect.new()
+	_terreno.material = _material
+	_terreno.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_terreno.stretch_mode = TextureRect.STRETCH_SCALE
+	_terreno.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_terreno.show_behind_parent = true
+	add_child(_terreno)
+	resized.connect(_posicionar_terreno)
 
 
 func configurar(p_sim: SimulacaoFogo, p_ferramentas: Ferramentas, p_textura: Texture2D) -> void:
 	sim = p_sim
 	ferramentas = p_ferramentas
 	textura = p_textura
+	veiculos = Veiculos.new(sim)
+	_terreno.texture = textura
+	_material.set_shader_parameter("dados", textura)
+	_material.set_shader_parameter("tamanho", Vector2(sim.largura, sim.altura))
+	_posicionar_terreno()
 	queue_redraw()
+
+
+func _posicionar_terreno() -> void:
+	if sim == null:
+		return
+	var area := area_mapa()
+	_terreno.position = area.position
+	_terreno.size = area.size
 
 
 ## Retângulo (em pixels) onde o mapa é desenhado, centralizado e mantendo a proporção.
@@ -97,8 +128,8 @@ func _draw() -> void:
 		return
 	var area := area_mapa()
 	var cel := tamanho_celula()
-	draw_rect(area.grow(6.0), Color(0.06, 0.055, 0.05))
-	draw_texture_rect(textura, area, false)
+	_material.set_shader_parameter("vento", sim.vetor_vento())
+	_material.set_shader_parameter("forca_vento", clampf(sim.vento_kmh / 40.0, 0.0, 1.0))
 	draw_rect(area.grow(6.0), COR_BORDA, false, 2.0)
 	var fonte := get_theme_default_font()
 
@@ -118,12 +149,13 @@ func _draw() -> void:
 		draw_colored_polygon(alerta, Color("#F5C542") if destacar_zonas else Color(0.96, 0.77, 0.26, 0.6))
 		draw_string(fonte, centro + Vector2(-5, t * 0.62), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color(0.1, 0.08, 0.05))
 
-	# Brigadas a caminho.
+	# Brigadas a caminho (destino) e os veículos.
 	for chamada in ferramentas.chamadas_pendentes:
 		var centro := centro_celula(chamada.centro)
 		var restante := chamada.passo_chegada - sim.passo
 		draw_arc(centro, ferramentas.config.raio_brigada * cel, 0.0, TAU, 64, Color(1, 0.3, 0.25, 0.9), 3.0, true)
 		_texto_com_fundo(fonte, centro, "193 · chega em %d" % restante, 18)
+	veiculos.desenhar(self, ferramentas, tempo, progresso_passo)
 
 	# Norte e escala.
 	var norte := area.position + Vector2(area.size.x - 34.0, 40.0)

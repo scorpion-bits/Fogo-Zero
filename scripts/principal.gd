@@ -30,6 +30,7 @@ var _gravando_video := false
 var _menu: TelaMenu
 var _tela_fases: TelaFases
 var _personalizado: TelaPersonalizado
+var _sons: Sons
 
 @onready var _mapa: MapaView = $MapaView
 @onready var _clima: ClimaApi = $ClimaApi
@@ -46,7 +47,10 @@ func _ready() -> void:
 		set_process_unhandled_input(false)
 	_leitura = LeituraClima.offline(config, "Buscando o clima de %s…" % config.nome_local)
 
+	_sons = Sons.new()
+	add_child(_sons)
 	_hud.configurar(config)
+	_hud.som_pedido.connect(_alternar_som)
 	_hud.ferramenta_escolhida.connect(_escolher_ferramenta)
 	_hud.velocidade_escolhida.connect(_escolher_velocidade)
 	_hud.reiniciar_pedido.connect(reiniciar)
@@ -91,12 +95,16 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_tempo += delta
 	if tela != Tela.JOGO or sim == null:
+		_sons.ambiente(0, 6.0, delta)
 		return
+	_sons.ambiente(sim.ativos.size(), sim.vento_kmh, delta)
 	if roteiro != null:
 		_processar_demo(delta)
 	elif not _encerrada:
 		_processar_partida(delta)
 	renderizador.atualizar(_tempo)
+	_mapa.progresso_passo = _acumulador if velocidade > 0.0 and not _encerrada else 0.0
+	_mapa.tempo = _tempo
 	_hud.mostrar_status(sim)
 	_hud.mostrar_recursos(ferramentas)
 	_mapa.queue_redraw()
@@ -112,6 +120,7 @@ func _processar_partida(delta: float) -> void:
 			for mensagem in partida.passo():
 				_hud.mostrar_mensagem(mensagem, 4.0)
 				_mostrar_clima_hud()
+				_sons.tocar("alerta", -4.0)
 			_acumulador -= 1.0
 			passos += 1
 		_acumulador = minf(_acumulador, 1.0)
@@ -141,6 +150,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_SPACE: _escolher_velocidade(1.0 if velocidade == 0.0 else 0.0)
 		KEY_ENTER, KEY_KP_ENTER: _comecar_incendio()
 		KEY_R: reiniciar()
+		KEY_M: _alternar_som()
 
 
 # --- Telas ---------------------------------------------------------------------------------
@@ -213,6 +223,8 @@ func _conectar(p_sim: SimulacaoFogo, p_ferramentas: Ferramentas) -> void:
 	sim = p_sim
 	ferramentas = p_ferramentas
 	ferramentas.brigada_chegou.connect(_on_brigada_chegou)
+	ferramentas.pipa_usada.connect(_on_pipa_usada)
+	ferramentas.brigada_chamada.connect(func(_c: Vector2i) -> void: _sons.tocar("sirene", -6.0))
 	renderizador = Renderizador.new(sim)
 	_mapa.configurar(sim, ferramentas, renderizador.textura)
 	_encerrada = false
@@ -231,6 +243,7 @@ func _comecar_incendio() -> void:
 	_hud.mostrar_mensagem("O fogo começou! Use o caminhão-pipa (3) e a brigada (4).", 4.0)
 	_escolher_ferramenta(Ferramentas.Tipo.PIPA)
 	_mostrar_clima_hud()
+	_sons.tocar("ignicao")
 
 
 func _encerrar_partida() -> void:
@@ -246,6 +259,7 @@ func _encerrar_partida() -> void:
 	if sim.focos.is_empty() and not missao.foco_livre:
 		opcoes["titulo"] = "FOGO ISOLADO!"
 	_resultado.mostrar(dados, opcoes)
+	_sons.tocar("vitoria" if dados["sede_salva"] else "derrota", -2.0)
 
 
 # --- Demonstração --------------------------------------------------------------------------
@@ -302,6 +316,7 @@ func _encerrar_demo() -> void:
 	if roteiro == null:
 		return
 	_resultado.mostrar(dados, {"voltar": "Menu"})
+	_sons.tocar("vitoria" if dados["sede_salva"] else "derrota", -2.0)
 	if _gravando_video:
 		await get_tree().create_timer(5.0).timeout
 		get_tree().quit()
@@ -402,9 +417,21 @@ func _on_arrasto(de: Vector2i, para: Vector2i) -> void:
 	if not ferramentas.pode_usar(Ferramentas.Tipo.ACEIRO):
 		_hud.mostrar_mensagem("Orçamento esgotado: não dá para abrir mais aceiro.")
 		return
-	ferramentas.abrir_aceiro(Ferramentas.linha_sem_furos(de, para))
+	if ferramentas.abrir_aceiro(Ferramentas.linha_sem_furos(de, para)) > 0:
+		_sons.aceiro()
 
 
-func _on_brigada_chegou(_centro: Vector2i, apagadas: int) -> void:
+func _alternar_som() -> void:
+	_hud.definir_som(_sons.alternar())
+
+
+func _on_pipa_usada(centro: Vector2i, _apagadas: int) -> void:
+	_sons.tocar("agua")
+	_mapa.veiculos.agua(centro, ferramentas.config.raio_pipa, _tempo, true)
+
+
+func _on_brigada_chegou(centro: Vector2i, apagadas: int) -> void:
+	_mapa.veiculos.agua(centro, ferramentas.config.raio_brigada, _tempo, false)
+	_sons.tocar("agua", -3.0)
 	if roteiro == null:
 		_hud.mostrar_mensagem("A brigada chegou e apagou %d células em chamas." % apagadas)

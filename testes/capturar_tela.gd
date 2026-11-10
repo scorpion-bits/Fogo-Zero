@@ -38,6 +38,9 @@ func _process(_delta: float) -> bool:
 			f.abrir_aceiro(Ferramentas.linha_sem_furos(Vector2i(60, 40), Vector2i(105, 40)))
 		70: _salvar("03_preparacao.png")
 		71: _principal.call("_comecar_incendio")
+		200:
+			var f: Ferramentas = _principal.get("ferramentas")
+			f.chamar_brigada(Vector2i(70, 80))
 		260:
 			var f: Ferramentas = _principal.get("ferramentas")
 			var partida: Partida = _principal.get("partida")

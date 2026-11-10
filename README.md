@@ -27,7 +27,8 @@ grade do jogo. Imagem: Esri, Maxar, Earthstar Geographics. Estradas e córrego: 
 
 ![Mapa real](capturas/07_mapa_real.png)
 
-Vídeo da demonstração: [`capturas/demo.mp4`](capturas/demo.mp4)
+Vídeo da demonstração: [`capturas/demo.mp4`](capturas/demo.mp4) (sem áudio). Amostra dos sons do jogo:
+[`capturas/amostra_sons.wav`](capturas/amostra_sons.wav).
 
 ---
 
@@ -86,6 +87,7 @@ A missão termina quando o fogo acaba (e não há mais eventos) ou quando o fogo
 | Pausar / continuar | **Espaço**, ou os botões Pausa, 1×, 2× e 4× |
 | Recomeçar a missão | **R** (mesma missão, mesmo sorteio) |
 | Voltar | **Esc** ou o botão *Menu* |
+| Ligar / desligar o som | **M** ou o botão *Som* |
 
 ### Campanha, dificuldade e pontuação
 
@@ -117,6 +119,23 @@ ação, o jogador e a referência são o mesmo incêndio, então nada foi evitad
 As estrelas e o recorde de cada fase ficam em `user://progresso.cfg` (no navegador, no armazenamento do
 site). Uma fase abre quando a anterior tem pelo menos 1 estrela. O script `testes/calibrar_fases.gd` mostra,
 para cada fase, o incêndio de referência e o resultado de uma estratégia simples.
+
+### Visual e som
+
+* **O mapa é desenhado por um shader** (`recursos/mapa.gdshader`). A simulação só envia o estado de cada
+  célula numa textura de dados de 128×128 (tipo, estado, intensidade e secura), e a placa de vídeo faz:
+  * textura do terreno: fileiras na cana (mais verde ou mais amarela conforme a secura), tufos no pasto,
+    copas na mata, telhas na sede, sulcos no aceiro e água com ondas;
+  * bordas orgânicas entre os tipos, em vez de quadradinhos;
+  * chama animada, com brilho que ilumina as células vizinhas;
+  * cinzas com brasas que se apagam aos poucos e células molhadas em tom azulado;
+  * fumaça que sai do fogo e vai na direção e com a força do vento.
+* **Veículos** (`scripts/veiculos.gd`): a viatura da brigada sai da borda do mapa e vem pelas estradas e
+  aceiros até o ponto chamado, com sirene piscando e o trajeto tracejado, e chega no passo em que a
+  simulação faz ela agir. O caminhão-pipa e a brigada jogam água em anéis. É só visual: a simulação não muda.
+* **Sons gerados por código** (`scripts/sons.gd`), sem arquivos de terceiros: estalos de fogo (mais altos
+  quanto maior o incêndio), vento ambiente (conforme a velocidade do vento), ignição, jato d'água, sirene,
+  aceiro, alerta de foco novo ou de mudança de vento, vitória e derrota.
 
 ### Modo personalizado
 
@@ -393,11 +412,13 @@ scripts/
   progresso.gd        estrelas e recordes salvos
   classificador_foto.gd  foto aérea/satélite → grade (classificação por cor)
   mapa_real.gd        mapa real: satélite (Esri) + OpenStreetMap (Overpass) + busca (Nominatim)
+  renderizador.gd     textura de dados do mapa (uma célula por texel), lida pelo shader
+  veiculos.gd         brigada e caminhão-pipa animados (só visual)
+  sons.gd             sons gerados por código
   grade.gd            grade de terreno e secura e leitura dos PNGs
   terreno.gd          tipos de terreno e paleta
   simulacao_config.gd Resource com todas as constantes
   ferramentas.gd      recursos do jogador, aceiro, pipa e brigada
-  renderizador.gd     desenha a grade numa única Image/ImageTexture (sem um nó por célula)
   mapa_view.gd        mostra o mapa, recebe cliques e arrastos, desenha os marcadores
   clima_api.gd        Open-Meteo (HTTPRequest) com fallback offline
   leitura_clima.gd    dados de uma leitura de clima
@@ -408,11 +429,11 @@ scripts/
   gerador_mapa.gd     gerador procedural de mapas
   tela_menu.gd, tela_fases.gd, tela_personalizado.gd   telas
   hud.gd, seta_vento.gd, resultado.gd, estrelas.gd, ui.gd, principal.gd   interface
-recursos/    simulacao_config.tres, tema.tres
+recursos/    simulacao_config.tres, tema.tres, mapa.gdshader
 mapas/       exemplo_terreno.png, exemplo_secura.png, drone_teste_*.png (saída do pipeline)
 dados/       focos_exemplo_ficticio.csv, teste_sintetico.tif, teste_sintetico_rgb.png
 ferramentas/ converter_mapa.py, gerar_mapa_exemplo.py, gravar_demo.sh, requirements.txt
-testes/      teste_simulacao.gd, calibrar_fases.gd, teste_mapa_real.gd, quadros_demo.gd,
+testes/      teste_simulacao.gd, calibrar_fases.gd, teste_mapa_real.gd, salvar_sons.gd, quadros_demo.gd,
              capturar_tela.gd, gravar_demo.gd
 capturas/    capturas de tela e vídeo da demonstração
 ```
@@ -456,8 +477,12 @@ e `testes/teste_mapa_real.gd -- --lat=… --lon=… --pasta=…` baixa um mapa r
 
 * **Interface montada por código.** As cenas `.tscn` são enxutas e os controles do HUD são criados em
   `hud.gd`, a partir do Resource. Assim é fácil mudar valores sem mexer em vários nós.
-* **Desenho:** uma `Image` RGBA de 128×128 numa `ImageTexture`. A cada passo só as células alteradas são
-  repintadas, e a cada quadro só as que estão queimando, para a chama animar de amarelo a vermelho.
+* **Desenho:** uma textura de dados RGBA de 128×128 (uma célula por texel) e um shader que faz todo o visual.
+  A cada passo só as células alteradas, em chamas, molhadas ou com brasa são reescritas; a animação é do
+  shader. Isso deixa o custo na CPU igual ao da versão antiga (cerca de 3 ms por passo com 1.157 células em
+  chamas) e roda a 60 quadros por segundo no navegador.
+* **Sons gerados por código:** evitam licenças de bancos de sons e deixam o projeto sem arquivos de áudio.
+  Trocar por sons gravados no futuro é só trocar os `AudioStreamWAV` em `sons.gd`.
 * **Aceiro do jogador:** é um tipo próprio (`ACEIRO`), mostrado num tom mais claro que a estrada para ficar
   visível. No PNG ele tem a mesma cor da estrada (`#8A7F70`).
 * **Fogo apagado pela água ou pela brigada** vira `QUEIMADA` (área já atingida). As células intactas no
@@ -488,6 +513,7 @@ e `testes/teste_mapa_real.gd -- --lat=… --lon=… --pasta=…` baixa um mapa r
   Eles precisam de calibração com o voo real e com verificação em campo.
 * A detecção de construções pelo NDVI é aproximada. Use `--sede` para marcar a sede à mão.
 * O CSV do INPE é lido de um arquivo baixado à mão, sem API automática.
+* O vídeo da demonstração é gravado fora da tela, quadro a quadro, e por isso não tem áudio.
 * O **mapa real** classifica a foto só pela cor: palha seca e solo exposto, sombra e água se confundem, e
   os carreadores internos que não estão no OpenStreetMap não aparecem como barreira.
 * A foto da Esri exige chave/licença para uso comercial, e os servidores públicos do OpenStreetMap podem

@@ -1,8 +1,9 @@
 class_name Renderizador
 extends RefCounted
-## Desenha a grade numa única Image/ImageTexture (sem um nó por célula).
-## A cada passo só as células alteradas são repintadas; a cada quadro, só as que estão queimando
-## (para a chama piscar de amarelo a vermelho).
+## Mantém a textura de dados que o shader do mapa (recursos/mapa.gdshader) desenha. Cada texel é
+## uma célula: R = tipo, G = estado, B = intensidade (fogo restante, brasa ou água), A = secura.
+## Só as células que mudaram são reescritas; a animação (chama, água, fumaça) é feita no shader.
+## `imagem_plana()` gera a versão antiga, de cores chapadas, para salvar imagens nos testes.
 
 const COR_QUEIMADA := Color(0.17, 0.155, 0.14)
 const COR_SEDE_QUEIMADA := Color(0.3, 0.07, 0.05)
@@ -10,6 +11,8 @@ const COR_MOLHADA := Color(0.35, 0.62, 0.95)
 const FOGO_NOVO := Color(1.0, 0.94, 0.4)
 const FOGO_MEIO := Color(1.0, 0.55, 0.08)
 const FOGO_FIM := Color(0.8, 0.14, 0.05)
+## Quanto a brasa esfria a cada passo (de 255 até 0).
+const ESFRIAMENTO := 18
 
 var sim: SimulacaoFogo
 var imagem: Image
@@ -18,8 +21,9 @@ var textura: ImageTexture
 var _largura: int
 var _altura: int
 var _buffer := PackedByteArray()
-## Pequena variação de brilho por célula, para o mapa não ficar chapado.
-var _variacao := PackedFloat32Array()
+var _brasa := PackedByteArray()
+var _esfriando := PackedInt32Array()
+var _ultimo_passo := -1
 
 
 func _init(p_sim: SimulacaoFogo) -> void:
@@ -28,29 +32,47 @@ func _init(p_sim: SimulacaoFogo) -> void:
 	_altura = sim.altura
 	var n := _largura * _altura
 	_buffer.resize(n * 4)
-	_variacao.resize(n)
-	for i in n:
-		var h := sin(i * 12.9898 + 78.233) * 43758.5453
-		_variacao[i] = 0.93 + 0.14 * (h - floorf(h))
+	_brasa.resize(n)
 	imagem = Image.create_empty(_largura, _altura, false, Image.FORMAT_RGBA8)
 	textura = ImageTexture.create_from_image(imagem)
 	redesenhar_tudo()
 
 
 func redesenhar_tudo() -> void:
-	for i in _largura * _altura:
-		_pintar(i)
+	_brasa.fill(0)
+	_esfriando = PackedInt32Array()
+	var todas := PackedInt32Array()
+	todas.resize(_largura * _altura)
+	for i in todas.size():
+		todas[i] = i
+	_escrever_varias(todas)
 	sim.alteradas.clear()
+	_ultimo_passo = sim.passo
 	_enviar()
 
 
-## Chame uma vez por quadro. `t` é o tempo em segundos, usado na animação da chama.
-func atualizar(t: float) -> void:
+## Chame uma vez por quadro (`_t` fica por compatibilidade: a animação agora é do shader).
+func atualizar(_t: float = 0.0) -> void:
+	var novo_passo := sim.passo != _ultimo_passo
+	var estado := sim.estado
+	var terreno := sim.grade.terreno
 	for i in sim.alteradas:
-		_pintar(i)
+		if estado[i] == SimulacaoFogo.Estado.QUEIMADA and _brasa[i] == 0 and terreno[i] != Terreno.Tipo.ACEIRO:
+			_brasa[i] = 255
+			_esfriando.append(i)
+	_escrever_varias(sim.alteradas)
 	sim.alteradas.clear()
-	for i in sim.ativos:
-		_pintar_fogo(i, t)
+	if novo_passo:
+		_ultimo_passo = sim.passo
+		var ainda := PackedInt32Array()
+		for i in _esfriando:
+			_brasa[i] = maxi(_brasa[i] - ESFRIAMENTO, 0)
+			if _brasa[i] > 0:
+				ainda.append(i)
+		_escrever_varias(_esfriando)
+		_esfriando = ainda
+		_escrever_varias(sim.ativos)
+		_escrever_varias(sim.molhadas)
 	_enviar()
 
 
@@ -59,34 +81,48 @@ func _enviar() -> void:
 	textura.update(imagem)
 
 
-func _pintar(i: int) -> void:
-	var tipo := sim.grade.terreno[i]
-	var cor: Color
-	match sim.estado[i]:
-		SimulacaoFogo.Estado.INTACTA:
-			cor = Terreno.cores_tela[tipo]
-		SimulacaoFogo.Estado.QUEIMADA:
-			cor = COR_SEDE_QUEIMADA if tipo == Terreno.Tipo.SEDE else COR_QUEIMADA
-		SimulacaoFogo.Estado.MOLHADA:
-			cor = Terreno.cores_tela[tipo].lerp(COR_MOLHADA, 0.6)
-		_:
-			cor = FOGO_NOVO
-	_escrever(i, cor, _variacao[i])
+func _escrever_varias(indices: PackedInt32Array) -> void:
+	if indices.is_empty():
+		return
+	var terreno := sim.grade.terreno
+	var secura := sim.grade.secura
+	var estado := sim.estado
+	var tempo := sim.tempo
+	var inverso := PackedFloat32Array()
+	for t in Terreno.QUANTIDADE:
+		inverso.append(255.0 / sim.tempo_queima_tipo(t))
+	var inverso_molhada := 255.0 / maxi(sim.config.passos_molhada, 1)
+	for i in indices:
+		var o := i * 4
+		var tipo := terreno[i]
+		var e := estado[i]
+		var valor := 0
+		if e == SimulacaoFogo.Estado.QUEIMANDO:
+			valor = mini(int(tempo[i] * inverso[tipo]), 255)
+		elif e == SimulacaoFogo.Estado.QUEIMADA:
+			valor = _brasa[i]
+		elif e == SimulacaoFogo.Estado.MOLHADA:
+			valor = clampi(int(tempo[i] * inverso_molhada), 0, 255)
+		_buffer[o] = tipo
+		_buffer[o + 1] = e
+		_buffer[o + 2] = valor
+		_buffer[o + 3] = secura[i]
 
 
-func _pintar_fogo(i: int, t: float) -> void:
-	var fracao := float(sim.tempo[i]) / sim.tempo_queima_tipo(sim.grade.terreno[i])
-	var cor: Color
-	if fracao > 0.5:
-		cor = FOGO_MEIO.lerp(FOGO_NOVO, (fracao - 0.5) * 2.0)
-	else:
-		cor = FOGO_FIM.lerp(FOGO_MEIO, fracao * 2.0)
-	_escrever(i, cor, 0.86 + 0.14 * sin(t * 13.0 + _variacao[i] * 90.0))
-
-
-func _escrever(i: int, cor: Color, brilho: float) -> void:
-	var o := i * 4
-	_buffer[o] = clampi(roundi(cor.r * brilho * 255.0), 0, 255)
-	_buffer[o + 1] = clampi(roundi(cor.g * brilho * 255.0), 0, 255)
-	_buffer[o + 2] = clampi(roundi(cor.b * brilho * 255.0), 0, 255)
-	_buffer[o + 3] = 255
+## Imagem de cores chapadas (uma célula por pixel), para salvar quadros nos testes.
+func imagem_plana() -> Image:
+	var img := Image.create_empty(_largura, _altura, false, Image.FORMAT_RGBA8)
+	for i in _largura * _altura:
+		var tipo := sim.grade.terreno[i]
+		var cor: Color
+		match sim.estado[i]:
+			SimulacaoFogo.Estado.INTACTA:
+				cor = Terreno.cores_tela[tipo]
+			SimulacaoFogo.Estado.QUEIMADA:
+				cor = COR_SEDE_QUEIMADA if tipo == Terreno.Tipo.SEDE else COR_QUEIMADA
+			SimulacaoFogo.Estado.MOLHADA:
+				cor = Terreno.cores_tela[tipo].lerp(COR_MOLHADA, 0.6)
+			_:
+				cor = FOGO_MEIO
+		img.set_pixel(i % _largura, int(i / float(_largura)), cor)
+	return img

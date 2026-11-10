@@ -8,6 +8,7 @@ signal ferramenta_escolhida(tipo: Ferramentas.Tipo)
 signal velocidade_escolhida(valor: float)
 signal reiniciar_pedido
 signal comecar_pedido
+signal som_pedido
 signal menu_pedido
 signal sair_demo_pedido
 signal atualizar_clima_pedido
@@ -52,6 +53,7 @@ var _secao_missao: VBoxContainer
 var _lbl_etapa: Label
 var _lbl_instrucao: Label
 var _btn_comecar: Button
+var _btn_som: Button
 var _lbl_modo_demo: Label
 var _painel_legenda: PanelContainer
 var _lbl_legenda: Label
@@ -128,6 +130,10 @@ func definir_ferramenta(tipo: Ferramentas.Tipo) -> void:
 func definir_velocidade(valor: float) -> void:
 	for i in _botoes_velocidade.size():
 		_botoes_velocidade[i].set_pressed_no_signal(is_equal_approx(_velocidades[i], valor))
+
+
+func definir_som(ligado: bool) -> void:
+	_btn_som.text = "Som: ligado (M)" if ligado else "Som: desligado (M)"
 
 
 ## Ajusta o HUD para a missão: título, ferramenta de foco só no modo livre, cenário manual idem.
@@ -329,7 +335,13 @@ func _montar_direita() -> void:
 		_botoes_velocidade.append(b)
 		velocidades.add_child(b)
 	simulacao.add_child(velocidades)
-	simulacao.add_child(_botao("Recomeçar a missão (R)", reiniciar_pedido.emit))
+	var linha_sim := HBoxContainer.new()
+	var recomecar := _botao("Recomeçar a missão (R)", reiniciar_pedido.emit)
+	recomecar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	linha_sim.add_child(recomecar)
+	_btn_som = _botao("Som: ligado (M)", som_pedido.emit)
+	linha_sim.add_child(_btn_som)
+	simulacao.add_child(linha_sim)
 	caixa.add_child(simulacao)
 	_secao_controles.append(simulacao)
 

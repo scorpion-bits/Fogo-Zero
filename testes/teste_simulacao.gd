@@ -313,6 +313,6 @@ func _salvar_imagem(sim: SimulacaoFogo, nome: String) -> void:
 		if arg.begins_with("--imagens="):
 			var r := Renderizador.new(sim)
 			r.atualizar(0.0)
-			var img := r.imagem.duplicate() as Image
+			var img := r.imagem_plana()
 			img.resize(512, 512, Image.INTERPOLATE_NEAREST)
 			img.save_png(arg.trim_prefix("--imagens=").path_join(nome))

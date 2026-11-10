@@ -19,7 +19,7 @@ func _init() -> void:
 		roteiro.antes_do_passo(sim, f)
 		if sim.passo % 15 == 0 or sim.terminou():
 			r.atualizar(0.0)
-			var img := r.imagem.duplicate() as Image
+			var img := r.imagem_plana()
 			img.resize(384, 384, Image.INTERPOLATE_NEAREST)
 			img.save_png(pasta.path_join("q_%03d.png" % sim.passo))
 		if sim.terminou() or sim.passo > 600:
