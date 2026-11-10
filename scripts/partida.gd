@@ -15,29 +15,32 @@ var grade: Grade
 var sim: SimulacaoFogo
 var ferramentas: Ferramentas
 var etapa := Etapa.PREPARACAO
+var variacao := 0
 ## Centros dos pontos de risco e as células onde o fogo começa, na ordem de ignição.
 var centros: Array[Vector2i] = []
 var ignicoes: Array[Vector2i] = []
-## Quantos pontos de risco já pegaram fogo (ou deveriam ter pegado).
+## Quantas das zonas mostradas já pegaram fogo (ou deveriam ter pegado).
 var acesos := 0
 
 var referencia: SimulacaoFogo
 var referencia_pronta := false
-var _acesos_referencia := 0
 
 
-func _init(p_missao: Missao, config_base: SimulacaoConfig) -> void:
+## `p_variacao` muda o sorteio desta tentativa (onde o fogo começa e como ele se espalha).
+## Com 0, a partida é sempre igual: é o que os testes e a calibração usam.
+func _init(p_missao: Missao, config_base: SimulacaoConfig, p_variacao: int = 0) -> void:
 	missao = p_missao
+	variacao = p_variacao
 	config = missao.configurar(config_base)
 	grade = missao.criar_grade(config)
 	sim = SimulacaoFogo.new(config, grade)
-	sim.reiniciar(missao.semente)
+	sim.reiniciar(_semente())
 	ferramentas = Ferramentas.new(config, sim)
 	sim.definir_clima(missao.temperatura, missao.umidade, missao.vento_kmh, missao.vento_direcao)
 	if missao.foco_livre:
 		etapa = Etapa.INCENDIO
 	else:
-		var sorteio := missao.sortear_focos(grade, sim.vetor_vento())
+		var sorteio := missao.sortear_focos(grade, sim.vetor_vento(), variacao)
 		centros.assign(sorteio["centros"])
 		ignicoes.assign(sorteio["ignicoes"])
 	ferramentas.em_preparacao = etapa == Etapa.PREPARACAO
@@ -57,10 +60,12 @@ func iniciar_incendio() -> void:
 	ferramentas.em_preparacao = false
 	ferramentas.multiplicador_aceiro = 2
 	referencia = SimulacaoFogo.new(config, grade.copiar_original())
-	referencia.reiniciar(missao.semente)
+	referencia.reiniciar(_semente())
 	referencia.definir_clima(sim.temperatura, sim.umidade, sim.vento_kmh, sim.vento_direcao)
-	acesos = _acender_proximos(sim, 0, missao.focos_iniciais)
-	_acesos_referencia = _acender_proximos(referencia, 0, missao.focos_iniciais)
+	acesos = mini(missao.focos_iniciais, mini(missao.candidatos, ignicoes.size()))
+	for i in acesos:
+		Missao.acender(sim, ignicoes[i])
+		Missao.acender(referencia, ignicoes[i])
 
 
 ## Avança um passo. Devolve mensagens de eventos para o jogador ("Novo foco!", "O vento virou!").
@@ -69,9 +74,7 @@ func passo() -> PackedStringArray:
 	if etapa != Etapa.INCENDIO:
 		return mensagens
 	if not missao.foco_livre:
-		var antes := acesos
-		acesos = _eventos(sim, acesos)
-		if acesos > antes:
+		if _eventos(sim):
 			mensagens.append("Novo foco de incêndio num lugar inesperado!")
 		if sim.passo == missao.passo_mudanca_vento:
 			mensagens.append("O vento mudou: agora vem do %s a %d km/h." % [
@@ -108,7 +111,7 @@ func avancar_referencia(max_passos: int) -> void:
 				or referencia.passo >= MAX_PASSOS_REFERENCIA:
 			referencia_pronta = true
 			return
-		_acesos_referencia = _eventos(referencia, _acesos_referencia)
+		_eventos(referencia)
 		referencia.avancar()
 
 
@@ -129,17 +132,18 @@ func resultado() -> Dictionary:
 	return dados
 
 
-func _acender_proximos(s: SimulacaoFogo, de: int, quantos: int) -> int:
-	var ate := mini(de + quantos, ignicoes.size())
-	for i in range(de, ate):
-		Missao.acender(s, ignicoes[i])
-	return ate
+func _semente() -> int:
+	return missao.semente + variacao * 7919
 
 
-func _eventos(s: SimulacaoFogo, ja_acesos: int) -> int:
+## Eventos do passo atual: mudança de vento e focos extras, que surgem fora das zonas mostradas
+## (as ignições depois das `candidatos` primeiras). Devolve true se um foco novo acendeu.
+func _eventos(s: SimulacaoFogo) -> bool:
 	if s.passo == missao.passo_mudanca_vento:
 		s.definir_clima(s.temperatura, s.umidade, missao.novo_vento_kmh, missao.nova_direcao)
-	for p in missao.focos_extras:
-		if s.passo == p:
-			ja_acesos = _acender_proximos(s, ja_acesos, 1)
-	return ja_acesos
+	var acendeu := false
+	for k in missao.focos_extras.size():
+		var i := missao.candidatos + k
+		if s.passo == missao.focos_extras[k] and i < ignicoes.size():
+			acendeu = Missao.acender(s, ignicoes[i]) or acendeu
+	return acendeu

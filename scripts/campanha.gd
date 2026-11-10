@@ -89,7 +89,7 @@ static func fases() -> Array[Missao]:
 	m.focos_extras = [40]
 	m.ameaca = 0.5
 	m.raio_risco = 11
-	m.orcamento = 1000
+	m.orcamento = 1400
 	m.cargas_pipa = 3
 	m.chamadas_brigada = 1
 	lista.append(m)
@@ -111,7 +111,7 @@ static func fases() -> Array[Missao]:
 	m.focos_iniciais = 2
 	m.focos_extras = [30]
 	m.ameaca = 0.8
-	m.orcamento = 1100
+	m.orcamento = 1000
 	m.cargas_pipa = 3
 	m.chamadas_brigada = 1
 	m.atraso_brigada = 30
@@ -133,7 +133,7 @@ static func fases() -> Array[Missao]:
 	m.focos_iniciais = 2
 	m.focos_extras = [25]
 	m.ameaca = 0.85
-	m.orcamento = 1000
+	m.orcamento = 1150
 	m.cargas_pipa = 2
 	m.chamadas_brigada = 1
 	m.atraso_brigada = 35

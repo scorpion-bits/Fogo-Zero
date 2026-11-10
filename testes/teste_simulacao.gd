@@ -238,26 +238,58 @@ func _teste_missoes() -> void:
 	# Aceiro em volta de cada zona isola o fogo.
 	var m := fases[0]
 	var p2 := Partida.new(m, _config)
-	for c in p2.centros_pendentes():
-		var raio := m.raio_risco + 2
-		var cantos: Array[Vector2i] = [c + Vector2i(-raio, -raio), c + Vector2i(raio, -raio), c + Vector2i(raio, raio), c + Vector2i(-raio, raio)]
-		for k in 4:
-			p2.ferramentas.abrir_aceiro(Ferramentas.linha_sem_furos(cantos[k], cantos[(k + 1) % 4]))
+	_cercar_zonas(p2)
 	p2.iniciar_incendio()
 	_checar(p2.ferramentas.custo_aceiro() == 2 * _config.custo_aceiro_celula, "aceiro custa o dobro durante o incêndio")
 	while not p2.terminou() and p2.sim.passo < 2000:
 		p2.passo()
 	var r2 := p2.resultado()
 	_checar(r2["sede_salva"] and r2["estrelas"] == 3, "aceiros em volta das zonas de risco: 3 estrelas (evitou %d%%)" % roundi(100 * r2["evitada"]))
-	# Foco surpresa e mudança de vento acontecem nos passos combinados.
+	# Foco surpresa (fora das zonas mostradas) e mudança de vento acontecem nos passos combinados.
 	var m4 := fases[3]
 	var p4 := Partida.new(m4, _config)
+	var surpresa := p4.ignicoes[m4.candidatos]
+	var fora := true
+	for c in p4.centros_pendentes():
+		fora = fora and Vector2(surpresa - c).length() > m4.raio_risco
+	_checar(fora, "o foco surpresa fica fora das zonas mostradas")
+	_cercar_zonas(p4)
 	p4.iniciar_incendio()
 	var mensagens := PackedStringArray()
 	while not p4.terminou() and p4.sim.passo < 2000:
 		mensagens.append_array(p4.passo())
-	_checar(p4.sim.focos.size() == 2, "fase 4 tem foco surpresa (%d focos)" % p4.sim.focos.size())
+	var ultimo: Vector2i = p4.sim.focos[p4.sim.focos.size() - 1]
+	_checar(p4.sim.focos.size() == 2 and Vector2(ultimo - surpresa).length() < 2.0,
+			"fase 4: o foco surpresa acende no lugar escondido (%d focos)" % p4.sim.focos.size())
 	_checar(mensagens.size() == 2, "avisa o foco novo e a mudança de vento")
+	# Cada tentativa sorteia o fogo de novo, dentro das mesmas zonas.
+	var a := Partida.new(m4, _config, 1)
+	var b := Partida.new(m4, _config, 1)
+	_checar(a.ignicoes == b.ignicoes, "mesmo sorteio = mesmos focos")
+	var zonas_iguais := true
+	var diferentes := 0
+	var primeiras := {}
+	for v in range(1, 21):
+		var t := Partida.new(m4, _config, v)
+		var zonas := t.centros_pendentes()
+		zonas.sort()
+		var zonas_a := a.centros_pendentes()
+		zonas_a.sort()
+		zonas_iguais = zonas_iguais and zonas == zonas_a
+		diferentes += 1 if t.ignicoes != a.ignicoes else 0
+		primeiras[t.centros[0]] = true
+	_checar(zonas_iguais, "as zonas de risco mostradas não mudam entre as tentativas")
+	_checar(diferentes >= 18 and primeiras.size() == m4.candidatos,
+			"em 20 tentativas o fogo começa em pontos diferentes e em todas as %d zonas" % m4.candidatos)
+
+
+## Abre um anel de aceiro em volta de cada zona de risco mostrada.
+func _cercar_zonas(p: Partida) -> void:
+	for c in p.centros_pendentes():
+		var raio := p.missao.raio_risco + 2
+		var cantos: Array[Vector2i] = [c + Vector2i(-raio, -raio), c + Vector2i(raio, -raio), c + Vector2i(raio, raio), c + Vector2i(-raio, raio)]
+		for k in 4:
+			p.ferramentas.abrir_aceiro(Ferramentas.linha_sem_furos(cantos[k], cantos[(k + 1) % 4]))
 
 
 func _teste_classificador() -> void:

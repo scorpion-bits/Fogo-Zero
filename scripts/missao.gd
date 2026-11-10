@@ -89,7 +89,11 @@ func ultimo_evento() -> int:
 ## Sorteia os centros das zonas de risco e, para cada um, a célula exata onde o fogo começa.
 ## Devolve {"centros": Array[Vector2i], "ignicoes": Array[Vector2i]}, na ordem em que acendem:
 ## primeiro as zonas mostradas (em ordem sorteada), depois os focos extras, que não são mostrados.
-func sortear_focos(grade: Grade, vetor_vento: Vector2) -> Dictionary:
+##
+## As zonas mostradas dependem só da missão (são sempre as mesmas numa fase). `variacao` muda o
+## que o jogador não vê: quais zonas pegam fogo, a célula exata e onde caem os focos extras. Cada
+## tentativa usa uma variação diferente; 0 é o sorteio fixo dos testes.
+func sortear_focos(grade: Grade, vetor_vento: Vector2, variacao: int = 0) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = semente * 7919 + 13
 	var sede := centro_sede(grade)
@@ -125,6 +129,9 @@ func sortear_focos(grade: Grade, vetor_vento: Vector2) -> Dictionary:
 			if longe:
 				centros.append(c)
 		distancia_entre *= 0.7
+	if variacao != 0:
+		rng.seed = hash([semente, variacao])
+		_sortear_extras(centros, opcoes, rng)
 	# Entre as zonas mostradas, a ordem é sorteada: o jogador não sabe quais vão pegar fogo.
 	for i in range(mini(candidatos, centros.size()) - 1, 0, -1):
 		var j := rng.randi_range(0, i)
@@ -142,6 +149,24 @@ func sortear_focos(grade: Grade, vetor_vento: Vector2) -> Dictionary:
 				break
 		ignicoes.append(celula)
 	return {"centros": centros, "ignicoes": ignicoes}
+
+
+## Troca os focos extras (os centros depois das zonas mostradas) por outros lugares de risco,
+## escolhidos ao acaso na metade mais perigosa das opções e longe das zonas já escolhidas.
+func _sortear_extras(centros: Array[Vector2i], opcoes: Array[Dictionary], rng: RandomNumberGenerator) -> void:
+	@warning_ignore("integer_division")
+	var perigosas := maxi(opcoes.size() / 2, 1)
+	for i in range(mini(candidatos, centros.size()), centros.size()):
+		for tentativa in 60:
+			var c: Vector2i = opcoes[rng.randi_range(0, perigosas - 1)]["celula"]
+			var longe := true
+			for k in centros.size():
+				if k != i and Vector2(c - centros[k]).length() < 1.5 * raio_risco:
+					longe = false
+					break
+			if longe:
+				centros[i] = c
+				break
 
 
 ## Centro da sede (média das células de construção) ou o centro do mapa, se não houver sede.

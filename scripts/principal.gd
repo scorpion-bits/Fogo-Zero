@@ -191,7 +191,8 @@ func _voltar() -> void:
 func iniciar_missao(m: Missao) -> void:
 	roteiro = null
 	missao = m
-	partida = Partida.new(m, config)
+	# Cada tentativa sorteia de novo onde o fogo começa.
+	partida = Partida.new(m, config, randi_range(1, 999999))
 	_conectar(partida.sim, partida.ferramentas)
 	_mapa.zonas = partida.centros_pendentes()
 	_mapa.raio_zona = m.raio_risco

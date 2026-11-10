@@ -85,7 +85,7 @@ A missão termina quando o fogo acaba (e não há mais eventos) ou quando o fogo
 | Acender foco | ferramenta **1**, só no modo livre do modo personalizado |
 | Começar o incêndio | botão na direita ou **Enter** |
 | Pausar / continuar | **Espaço**, ou os botões Pausa, 1×, 2× e 4× |
-| Recomeçar a missão | **R** (mesma missão, mesmo sorteio) |
+| Recomeçar a missão | **R** (mesma missão, com o fogo sorteado de novo) |
 | Voltar | **Esc** ou o botão *Menu* |
 | Ligar / desligar o som | **M** ou o botão *Som* (a escolha fica salva) |
 
@@ -100,9 +100,14 @@ iniciais, foco surpresa, vento que muda de direção, menos dinheiro e cargas, e
 | 1. Primeiro aceiro | 31 °C, UR 32%, vento 10 km/h | 2 zonas, 1 foco, R$ 1.500 |
 | 2. Queima de lixo | 33 °C, UR 25%, vento 16 km/h | 3 zonas, mapa gerado, R$ 1.300 |
 | 3. Tarde de agosto | 36 °C, UR 15%, vento 28 km/h | 3 zonas grandes do lado do vento, R$ 1.200 |
-| 4. Vento virando | 34 °C, UR 20%, vento 18 → 24 km/h | o vento vira de leste para sul, foco surpresa, R$ 1.000 |
-| 5. Noite de balões | 32 °C, UR 18%, vento 20 km/h | 4 zonas, 2 focos, foco surpresa, brigada em 30 passos |
-| 6. Seca histórica | 38 °C, UR 12%, vento 32 km/h | 4 zonas, 2 focos, foco surpresa, 2 cargas, brigada em 35 passos, R$ 1.000 |
+| 4. Vento virando | 34 °C, UR 20%, vento 18 → 24 km/h | o vento vira de leste para sul, foco surpresa, R$ 1.400 |
+| 5. Noite de balões | 32 °C, UR 18%, vento 20 km/h | 4 zonas, 2 focos, foco surpresa, brigada em 30 passos, R$ 1.000 |
+| 6. Seca histórica | 38 °C, UR 12%, vento 32 km/h | 4 zonas, 2 focos, foco surpresa, 2 cargas, brigada em 35 passos, R$ 1.150 |
+
+**Cada tentativa é um sorteio novo.** As zonas de risco de uma fase são sempre as mesmas, mas a cada
+tentativa o jogo sorteia de novo o que o jogador não vê: quais zonas pegam fogo, a célula exata, onde cai o
+foco surpresa (sempre fora das zonas mostradas) e como o fogo se espalha. Não dá para decorar a fase: é
+preciso proteger a sede contra todas as zonas e guardar recursos para reagir.
 
 **Como a nota é calculada.** Quando o incêndio começa, o jogo roda em segundo plano uma **simulação de
 referência**: o mesmo incêndio (mesmo sorteio, mesmo clima, mesmos eventos) no mapa original, sem nenhuma
@@ -117,8 +122,11 @@ e 60 por chamada que sobraram). Se o fogo chega à sede, a missão é perdida e 
 ação, o jogador e a referência são o mesmo incêndio, então nada foi evitado.
 
 As estrelas e o recorde de cada fase ficam em `user://progresso.cfg` (no navegador, no armazenamento do
-site). Uma fase abre quando a anterior tem pelo menos 1 estrela. O script `testes/calibrar_fases.gd` mostra,
-para cada fase, o incêndio de referência e o resultado de uma estratégia simples.
+site). Uma fase abre quando a anterior tem pelo menos 1 estrela. O script `testes/calibrar_fases.gd` roda cada
+fase em vários sorteios (`-- --sorteios=60`) e mostra o incêndio de referência e o resultado de uma estratégia
+simples: um anel de aceiro em volta de cada zona, começando pelas mais próximas da sede, e o caminhão-pipa
+no foco surpresa um segundo depois de ele aparecer. Em 60 sorteios, essa estratégia tira em média 3,0
+estrelas nas fases 1 e 2, 1,9 nas fases 3 e 4, 1,5 na fase 5 e 0,6 na fase 6.
 
 ### Visual e som
 
@@ -458,6 +466,7 @@ O teste confere:
 * o gerador procedural;
 * o modo demonstração (sede salva, duração entre 20 e 40 s, reproduzível);
 * as missões: preparação, ferramentas bloqueadas antes do fogo, aceiro em dobro no incêndio, foco surpresa
+  fora das zonas mostradas, um sorteio novo a cada tentativa com as mesmas zonas,
   e mudança de vento, "sem ação = nada evitado" e 3 estrelas com aceiros em volta das zonas;
 * a classificação de imagens (paleta × foto e acerto na foto sintética);
 * o desempenho.
