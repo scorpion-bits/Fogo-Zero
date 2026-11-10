@@ -4,6 +4,8 @@ extends Control
 ## "O que aconteceu?" e uma dica de prevenção.
 
 signal jogar_novamente
+signal proxima_pedida
+signal voltar_pedido
 signal fechado
 
 const COR_SUAVE := Color(0.64, 0.6, 0.55)
@@ -30,14 +32,28 @@ func _ready() -> void:
 	hide()
 
 
-func mostrar(dados: Dictionary) -> void:
+## `opcoes`: "proxima" (há próxima fase aberta), "voltar" (texto do botão de voltar),
+## "novo_recorde" e "titulo" (substitui o título padrão).
+func mostrar(dados: Dictionary, opcoes: Dictionary = {}) -> void:
 	for filho in _caixa.get_children():
 		filho.queue_free()
 	var salva: bool = dados["sede_salva"]
-	_add(_label("SEDE SALVA!" if salva else "A SEDE FOI ATINGIDA", 40,
-			Color("#6BCB5A") if salva else Color("#E5484D")))
-	_add(_label("Pontuação: %s   ·   Área queimada: %s ha" % [
-		Hud.formatar_inteiro(dados["pontuacao"]), Narrador.formatar_ha(dados["area_ha"])], 24))
+	var titulo := HBoxContainer.new()
+	titulo.add_theme_constant_override("separation", 24)
+	var texto_titulo: String = opcoes.get("titulo", "SEDE SALVA!" if salva else "A SEDE FOI ATINGIDA")
+	var lbl_titulo := _label(texto_titulo, 40, Color("#6BCB5A") if salva else Color("#E5484D"))
+	lbl_titulo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	titulo.add_child(lbl_titulo)
+	if dados.get("tem_referencia", false):
+		titulo.add_child(Estrelas.criar(dados["estrelas"], 44.0))
+	_add(titulo)
+	var recorde := "   ·   Novo recorde!" if opcoes.get("novo_recorde", false) else ""
+	_add(_label("Pontuação: %s   ·   Área queimada: %s ha%s" % [
+		Hud.formatar_inteiro(dados["pontuacao"]), Narrador.formatar_ha(dados["area_ha"]), recorde], 24))
+	if not (dados.get("comparacao", []) as Array).is_empty():
+		_add(_label(" ".join(dados["comparacao"]), 20, COR_DESTAQUE))
+	if dados.has("pontos_detalhe"):
+		_add(_label(" · ".join(dados["pontos_detalhe"]), 17, COR_SUAVE))
 
 	var colunas := HBoxContainer.new()
 	colunas.add_theme_constant_override("separation", 40)
@@ -54,16 +70,16 @@ func mostrar(dados: Dictionary) -> void:
 	var botoes := HBoxContainer.new()
 	botoes.alignment = BoxContainer.ALIGNMENT_END
 	botoes.add_theme_constant_override("separation", 12)
-	var novamente := Button.new()
-	novamente.text = "Jogar de novo (mesma semente)"
-	novamente.pressed.connect(jogar_novamente.emit)
-	var fechar := Button.new()
-	fechar.text = "Ver o mapa"
-	fechar.pressed.connect(func() -> void:
+	var fechar := Ui.botao("Ver o mapa", func() -> void:
 		hide()
-		fechado.emit())
+		fechado.emit(), 20)
 	botoes.add_child(fechar)
-	botoes.add_child(novamente)
+	botoes.add_child(Ui.botao(opcoes.get("voltar", "Menu"), voltar_pedido.emit, 20))
+	if opcoes.get("proxima", false):
+		botoes.add_child(Ui.botao("Tentar de novo", jogar_novamente.emit, 20))
+		botoes.add_child(Ui.botao_principal("Próxima fase  ›", proxima_pedida.emit, 22))
+	else:
+		botoes.add_child(Ui.botao_principal("Tentar de novo", jogar_novamente.emit, 22))
 	_add(_espaco(6))
 	_add(botoes)
 	show()

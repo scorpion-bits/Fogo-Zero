@@ -18,6 +18,8 @@ func _init() -> void:
 	_teste_mapa_exemplo()
 	_teste_gerador()
 	_teste_demo()
+	_teste_missoes()
+	_teste_classificador()
 	_teste_desempenho()
 	print("")
 	if _falhas == 0:
@@ -217,6 +219,67 @@ func _teste_demo() -> void:
 			_checar(segundos > 20.0 and segundos < 40.0, "dura entre 20 e 40 s")
 			_salvar_imagem(sim, "demo_final.png")
 	_checar(resultados[0] == resultados[1], "demonstração é reproduzível")
+
+
+func _teste_missoes() -> void:
+	print("Missões e pontuação")
+	var fases := Campanha.fases()
+	_checar(fases.size() == 6, "a campanha tem 6 fases")
+	# Sem nenhuma ação, o jogador e a referência são o mesmo incêndio: nada foi evitado.
+	var p := Partida.new(fases[2], _config)
+	_checar(p.etapa == Partida.Etapa.PREPARACAO and p.centros_pendentes().size() == fases[2].candidatos,
+			"começa na preparação, com as zonas de risco à mostra")
+	_checar(not p.ferramentas.usar_pipa(Vector2i(60, 60)), "caminhão-pipa não funciona na preparação")
+	p.iniciar_incendio()
+	while not p.terminou() and p.sim.passo < 2000:
+		p.passo()
+	var r := p.resultado()
+	_checar(r["evitada"] == 0.0 and r["estrelas"] <= 1, "sem ação: nada evitado (no máximo 1 estrela)")
+	# Aceiro em volta de cada zona isola o fogo.
+	var m := fases[0]
+	var p2 := Partida.new(m, _config)
+	for c in p2.centros_pendentes():
+		var raio := m.raio_risco + 2
+		var cantos: Array[Vector2i] = [c + Vector2i(-raio, -raio), c + Vector2i(raio, -raio), c + Vector2i(raio, raio), c + Vector2i(-raio, raio)]
+		for k in 4:
+			p2.ferramentas.abrir_aceiro(Ferramentas.linha_sem_furos(cantos[k], cantos[(k + 1) % 4]))
+	p2.iniciar_incendio()
+	_checar(p2.ferramentas.custo_aceiro() == 2 * _config.custo_aceiro_celula, "aceiro custa o dobro durante o incêndio")
+	while not p2.terminou() and p2.sim.passo < 2000:
+		p2.passo()
+	var r2 := p2.resultado()
+	_checar(r2["sede_salva"] and r2["estrelas"] == 3, "aceiros em volta das zonas de risco: 3 estrelas (evitou %d%%)" % roundi(100 * r2["evitada"]))
+	# Foco surpresa e mudança de vento acontecem nos passos combinados.
+	var m4 := fases[3]
+	var p4 := Partida.new(m4, _config)
+	p4.iniciar_incendio()
+	var mensagens := PackedStringArray()
+	while not p4.terminou() and p4.sim.passo < 2000:
+		mensagens.append_array(p4.passo())
+	_checar(p4.sim.focos.size() == 2, "fase 4 tem foco surpresa (%d focos)" % p4.sim.focos.size())
+	_checar(mensagens.size() == 2, "avisa o foco novo e a mudança de vento")
+
+
+func _teste_classificador() -> void:
+	print("Classificação de imagens")
+	var paleta := Grade.carregar_imagem(_config.mapa_terreno)
+	_checar(ClassificadorFoto.eh_paleta(paleta), "reconhece um mapa na paleta do jogo")
+	var foto := Image.load_from_file(ProjectSettings.globalize_path("res://dados/teste_sintetico_rgb.png"))
+	if foto == null:
+		return
+	_checar(not ClassificadorFoto.eh_paleta(foto), "reconhece uma foto comum")
+	var g := ClassificadorFoto.classificar(ClassificadorFoto.reduzir(foto, 128))
+	var exemplo := _carregar_exemplo()
+	var iguais := 0
+	var vegetacao := 0
+	for i in g.terreno.size():
+		var t := exemplo.terreno[i]
+		if t == Terreno.Tipo.CANA or t == Terreno.Tipo.PASTO or t == Terreno.Tipo.MATA:
+			vegetacao += 1
+			if g.terreno[i] == t:
+				iguais += 1
+	var acerto := 100.0 * iguais / vegetacao
+	_checar(acerto > 70.0, "foto sintética: %d%% da vegetação classificada certo" % roundi(acerto))
 
 
 func _teste_desempenho() -> void:

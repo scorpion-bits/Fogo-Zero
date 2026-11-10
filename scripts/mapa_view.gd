@@ -14,6 +14,11 @@ var ferramentas: Ferramentas
 var textura: Texture2D
 var ferramenta: Ferramentas.Tipo = Ferramentas.Tipo.FOCO
 var interativo := true
+## Zonas de risco (centros) e o raio delas, em células.
+var zonas: Array[Vector2i] = []
+var raio_zona := 9
+## Na preparação as zonas ficam destacadas; durante o incêndio, mais discretas.
+var destacar_zonas := true
 
 var _arrastando := false
 var _ultima := Vector2i(-1, -1)
@@ -96,6 +101,22 @@ func _draw() -> void:
 	draw_texture_rect(textura, area, false)
 	draw_rect(area.grow(6.0), COR_BORDA, false, 2.0)
 	var fonte := get_theme_default_font()
+
+	# Zonas de risco: o fogo começa em algum ponto dentro delas.
+	var pulso := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 300.0) if destacar_zonas else 0.0
+	for z in zonas:
+		var centro := centro_celula(z)
+		var raio := (raio_zona + 0.5) * cel
+		draw_circle(centro, raio, Color(1.0, 0.35, 0.1, 0.10 + 0.08 * pulso))
+		var segmentos := 24
+		for k in segmentos:
+			if k % 2 == 0:
+				draw_arc(centro, raio, TAU * k / segmentos, TAU * (k + 1) / segmentos, 6,
+						Color(1.0, 0.55, 0.2, 0.95 if destacar_zonas else 0.5), 3.0, true)
+		var t := 22.0
+		var alerta := PackedVector2Array([centro + Vector2(0, -t), centro + Vector2(t, t * 0.8), centro + Vector2(-t, t * 0.8)])
+		draw_colored_polygon(alerta, Color("#F5C542") if destacar_zonas else Color(0.96, 0.77, 0.26, 0.6))
+		draw_string(fonte, centro + Vector2(-5, t * 0.62), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color(0.1, 0.08, 0.05))
 
 	# Brigadas a caminho.
 	for chamada in ferramentas.chamadas_pendentes:

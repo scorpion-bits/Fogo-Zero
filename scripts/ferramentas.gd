@@ -24,6 +24,11 @@ var brigadas_usadas := 0
 var apagadas_pipa := 0
 var apagadas_brigada := 0
 var chamadas_pendentes: Array[Chamada] = []
+var gasto_aceiro := 0
+## Na preparação (antes do fogo) só dá para abrir aceiro: caminhão e brigada ficam de prontidão.
+var em_preparacao := false
+## Aceiro aberto durante o incêndio custa mais (é trabalho de emergência).
+var multiplicador_aceiro := 1
 
 
 func _init(p_config: SimulacaoConfig, p_sim: SimulacaoFogo) -> void:
@@ -41,6 +46,8 @@ func reiniciar() -> void:
 	brigadas_usadas = 0
 	apagadas_pipa = 0
 	apagadas_brigada = 0
+	gasto_aceiro = 0
+	multiplicador_aceiro = 1
 	chamadas_pendentes.clear()
 
 
@@ -51,18 +58,24 @@ func iniciar_foco(celula: Vector2i) -> bool:
 ## Abre aceiro nas células da lista enquanto houver orçamento. Retorna quantas viraram aceiro.
 func abrir_aceiro(celulas: Array[Vector2i]) -> int:
 	var abertas := 0
+	var custo := custo_aceiro()
 	for c in celulas:
-		if orcamento < config.custo_aceiro_celula:
+		if orcamento < custo:
 			break
 		if sim.abrir_aceiro(c):
-			orcamento -= config.custo_aceiro_celula
+			orcamento -= custo
+			gasto_aceiro += custo
 			celulas_aceiro += 1
 			abertas += 1
 	return abertas
 
 
+func custo_aceiro() -> int:
+	return config.custo_aceiro_celula * multiplicador_aceiro
+
+
 func usar_pipa(celula: Vector2i) -> bool:
-	if cargas_pipa <= 0 or not sim.grade.contem(celula):
+	if em_preparacao or cargas_pipa <= 0 or not sim.grade.contem(celula):
 		return false
 	cargas_pipa -= 1
 	pipas_usadas += 1
@@ -71,7 +84,7 @@ func usar_pipa(celula: Vector2i) -> bool:
 
 
 func chamar_brigada(celula: Vector2i) -> bool:
-	if chamadas_brigada <= 0 or not sim.grade.contem(celula):
+	if em_preparacao or chamadas_brigada <= 0 or not sim.grade.contem(celula):
 		return false
 	chamadas_brigada -= 1
 	brigadas_usadas += 1
@@ -94,9 +107,9 @@ func processar_passo() -> void:
 
 func pode_usar(tipo: Tipo) -> bool:
 	match tipo:
-		Tipo.ACEIRO: return orcamento >= config.custo_aceiro_celula
-		Tipo.PIPA: return cargas_pipa > 0
-		Tipo.BRIGADA: return chamadas_brigada > 0
+		Tipo.ACEIRO: return orcamento >= custo_aceiro()
+		Tipo.PIPA: return cargas_pipa > 0 and not em_preparacao
+		Tipo.BRIGADA: return chamadas_brigada > 0 and not em_preparacao
 	return true
 
 

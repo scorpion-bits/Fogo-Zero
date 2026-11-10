@@ -7,11 +7,8 @@ extends Control
 signal ferramenta_escolhida(tipo: Ferramentas.Tipo)
 signal velocidade_escolhida(valor: float)
 signal reiniciar_pedido
-signal semente_alterada(valor: int)
-signal mapa_exemplo_pedido
-signal mapa_aleatorio_pedido
-signal abrir_mapa_pedido
-signal demo_pedida
+signal comecar_pedido
+signal menu_pedido
 signal sair_demo_pedido
 signal atualizar_clima_pedido
 signal clima_manual_alterado(ativo: bool, temperatura: float, umidade: float, vento: float, direcao: float)
@@ -48,9 +45,13 @@ var _lbl_orcamento: Label
 var _lbl_pipa: Label
 var _lbl_brigada: Label
 var _lbl_status: Label
-var _spin_semente: SpinBox
-var _btn_abrir: Button
 var _btn_sair_demo: Button
+var _lbl_missao: Label
+var _lbl_creditos: Label
+var _secao_missao: VBoxContainer
+var _lbl_etapa: Label
+var _lbl_instrucao: Label
+var _btn_comecar: Button
 var _lbl_modo_demo: Label
 var _painel_legenda: PanelContainer
 var _lbl_legenda: Label
@@ -96,12 +97,12 @@ func mostrar_clima(leitura: LeituraClima, leitura_real: bool, temperatura: float
 
 func mostrar_recursos(f: Ferramentas) -> void:
 	_lbl_orcamento.text = "Orçamento: R$ %s" % formatar_inteiro(f.orcamento)
-	_lbl_pipa.text = "Cargas do caminhão-pipa: %d de %d" % [f.cargas_pipa, config.cargas_pipa]
-	var brigada := "Brigada (193): %d de %d" % [f.chamadas_brigada, config.chamadas_brigada]
+	_lbl_pipa.text = "Cargas do caminhão-pipa: %d de %d" % [f.cargas_pipa, f.config.cargas_pipa]
+	var brigada := "Brigada (193): %d de %d" % [f.chamadas_brigada, f.config.chamadas_brigada]
 	for chamada in f.chamadas_pendentes:
 		brigada += "\n  a caminho: chega em %d passos" % (chamada.passo_chegada - f.sim.passo)
 	_lbl_brigada.text = brigada
-	_botoes_ferramenta[Ferramentas.Tipo.ACEIRO].text = "2  Aceiro (R$ %d por célula)" % config.custo_aceiro_celula
+	_botoes_ferramenta[Ferramentas.Tipo.ACEIRO].text = "2  Aceiro (R$ %d por célula)" % f.custo_aceiro()
 	_botoes_ferramenta[Ferramentas.Tipo.PIPA].text = "3  Caminhão-pipa (%d)" % f.cargas_pipa
 	_botoes_ferramenta[Ferramentas.Tipo.BRIGADA].text = "4  Chamar brigada 193 (%d)" % f.chamadas_brigada
 	for tipo in [Ferramentas.Tipo.ACEIRO, Ferramentas.Tipo.PIPA, Ferramentas.Tipo.BRIGADA]:
@@ -129,12 +130,34 @@ func definir_velocidade(valor: float) -> void:
 		_botoes_velocidade[i].set_pressed_no_signal(is_equal_approx(_velocidades[i], valor))
 
 
-func definir_semente(valor: int) -> void:
-	_spin_semente.set_value_no_signal(valor)
+## Ajusta o HUD para a missão: título, ferramenta de foco só no modo livre, cenário manual idem.
+func modo_missao(m: Missao) -> void:
+	_lbl_missao.text = "FASE %d · %s" % [m.numero, m.nome.to_upper()] if m.numero > 0 else "MODO PERSONALIZADO"
+	_lbl_missao.visible = true
+	_botoes_ferramenta[Ferramentas.Tipo.FOCO].visible = m.foco_livre
+	_secao_manual.visible = m.foco_livre
+	_btn_atualizar.visible = m.clima_real
+	_lbl_creditos.text = m.creditos
+	_lbl_creditos.visible = not m.creditos.is_empty()
 
 
-func permitir_abrir_arquivo(permitir: bool) -> void:
-	_btn_abrir.visible = permitir
+func definir_etapa(etapa: Partida.Etapa, foco_livre: bool) -> void:
+	# O botão continua no lugar (desativado) para o painel não pular de posição.
+	_btn_comecar.visible = not foco_livre
+	_btn_comecar.disabled = etapa != Partida.Etapa.PREPARACAO
+	_btn_comecar.text = "Começar o incêndio" if etapa == Partida.Etapa.PREPARACAO else "Incêndio em andamento"
+	if foco_livre:
+		_lbl_etapa.text = "MODO LIVRE"
+		_lbl_etapa.add_theme_color_override("font_color", Color("#7FC8F8"))
+		_lbl_instrucao.text = "Escolha a ferramenta 1 e clique no mapa para acender um foco. Sem estrelas neste modo."
+	elif etapa == Partida.Etapa.PREPARACAO:
+		_lbl_etapa.text = "PREPARAÇÃO"
+		_lbl_etapa.add_theme_color_override("font_color", Color("#7FC8F8"))
+		_lbl_instrucao.text = "Arraste no mapa para abrir aceiros. O fogo vai começar numa das zonas de risco (!), mas você não sabe qual."
+	else:
+		_lbl_etapa.text = "INCÊNDIO!"
+		_lbl_etapa.add_theme_color_override("font_color", Ui.COR_PERIGO)
+		_lbl_instrucao.text = "Caminhão-pipa (3) apaga e molha uma área. Brigada (4) chega depois de alguns passos. Aceiro agora custa o dobro."
 
 
 ## Legenda fixa no topo do mapa (dica inicial ou legenda do modo demonstração).
@@ -154,8 +177,11 @@ func mostrar_mensagem(texto: String, segundos: float = 2.5) -> void:
 func modo_demo(ativo: bool) -> void:
 	for c in _secao_controles:
 		c.visible = not ativo
-	_secao_manual.visible = not ativo
-	_btn_atualizar.visible = not ativo
+	_secao_missao.visible = not ativo
+	_lbl_missao.visible = false
+	_lbl_creditos.visible = false
+	_secao_manual.visible = false
+	_btn_atualizar.visible = false
 	_btn_sair_demo.visible = ativo
 	_lbl_modo_demo.visible = ativo
 	for rolagem in _rolagens:
@@ -182,6 +208,9 @@ func _montar_esquerda() -> void:
 	_lbl_modo_demo = _label("MODO DEMONSTRAÇÃO", 17, COR_DESTAQUE)
 	_lbl_modo_demo.visible = false
 	caixa.add_child(_lbl_modo_demo)
+	_lbl_missao = _label("", 22, COR_DESTAQUE)
+	_lbl_missao.visible = false
+	caixa.add_child(_lbl_missao)
 
 	_titulo_secao(caixa, "CLIMA · " + config.nome_local.to_upper())
 	var linha := HBoxContainer.new()
@@ -223,6 +252,9 @@ func _montar_esquerda() -> void:
 	_lbl_focos = _label("", 15, COR_SUAVE)
 	_lbl_focos.visible = false
 	caixa.add_child(_lbl_focos)
+	_lbl_creditos = _label("", 14, COR_SUAVE)
+	_lbl_creditos.visible = false
+	caixa.add_child(_lbl_creditos)
 
 	var manual := VBoxContainer.new()
 	_secao_manual = manual
@@ -241,10 +273,25 @@ func _montar_esquerda() -> void:
 
 func _montar_direita() -> void:
 	var caixa := _painel(false)
+	_secao_missao = VBoxContainer.new()
+	_secao_missao.add_theme_constant_override("separation", 6)
+	var linha_etapa := HBoxContainer.new()
+	_lbl_etapa = _label("", 28, COR_DESTAQUE)
+	_lbl_etapa.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lbl_etapa.autowrap_mode = TextServer.AUTOWRAP_OFF
+	linha_etapa.add_child(_lbl_etapa)
+	linha_etapa.add_child(_botao("Menu (Esc)", menu_pedido.emit))
+	_secao_missao.add_child(linha_etapa)
+	_lbl_instrucao = _label("", 17)
+	_secao_missao.add_child(_lbl_instrucao)
+	_btn_comecar = Ui.botao_principal("Começar o incêndio", comecar_pedido.emit, 24)
+	_secao_missao.add_child(_btn_comecar)
+	caixa.add_child(_secao_missao)
+
 	var ferramentas := VBoxContainer.new()
 	_titulo_secao(ferramentas, "FERRAMENTAS")
 	var grupo := ButtonGroup.new()
-	var nomes := ["1  Iniciar foco", "2  Aceiro", "3  Caminhão-pipa", "4  Chamar brigada 193"]
+	var nomes := ["1  Acender foco", "2  Aceiro", "3  Caminhão-pipa", "4  Chamar brigada 193"]
 	var dicas := [
 		"Clique numa célula para começar um foco de incêndio.",
 		"Arraste no mapa para abrir uma faixa sem vegetação (barreira). Custa orçamento.",
@@ -282,34 +329,10 @@ func _montar_direita() -> void:
 		_botoes_velocidade.append(b)
 		velocidades.add_child(b)
 	simulacao.add_child(velocidades)
-	var linha_semente := HBoxContainer.new()
-	linha_semente.add_child(_botao("Reiniciar (R)", reiniciar_pedido.emit))
-	var rotulo_semente := _label("Semente:", 17, COR_SUAVE)
-	rotulo_semente.autowrap_mode = TextServer.AUTOWRAP_OFF
-	rotulo_semente.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	linha_semente.add_child(rotulo_semente)
-	_spin_semente = SpinBox.new()
-	_spin_semente.max_value = 999999
-	_spin_semente.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_spin_semente.value_changed.connect(func(v: float) -> void: semente_alterada.emit(int(v)))
-	linha_semente.add_child(_spin_semente)
-	simulacao.add_child(linha_semente)
+	simulacao.add_child(_botao("Recomeçar a missão (R)", reiniciar_pedido.emit))
 	caixa.add_child(simulacao)
 	_secao_controles.append(simulacao)
 
-	var mapas := VBoxContainer.new()
-	_titulo_secao(mapas, "MAPA")
-	var linha_mapas := HBoxContainer.new()
-	linha_mapas.add_child(_botao("Exemplo", mapa_exemplo_pedido.emit))
-	linha_mapas.add_child(_botao("Aleatório", mapa_aleatorio_pedido.emit))
-	_btn_abrir = _botao("Abrir PNG…", abrir_mapa_pedido.emit)
-	linha_mapas.add_child(_btn_abrir)
-	mapas.add_child(linha_mapas)
-	mapas.add_child(_espaco(6))
-	var demo := _botao("▶  Modo demonstração (D)", demo_pedida.emit)
-	mapas.add_child(demo)
-	caixa.add_child(mapas)
-	_secao_controles.append(mapas)
 	_btn_sair_demo = _botao("Sair da demonstração", sair_demo_pedido.emit)
 	_btn_sair_demo.visible = false
 	caixa.add_child(_btn_sair_demo)

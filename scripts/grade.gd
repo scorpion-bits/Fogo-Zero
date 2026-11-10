@@ -111,3 +111,19 @@ func para_imagem_terreno() -> Image:
 
 func para_imagem_secura() -> Image:
 	return Image.create_from_data(largura, altura, false, Image.FORMAT_L8, secura)
+
+
+## Cópia independente (terreno, secura e original), para simular sem mexer na grade do jogo.
+func copiar() -> Grade:
+	var g := Grade.new(largura, altura)
+	g.terreno = terreno.duplicate()
+	g.secura = secura.duplicate()
+	g._terreno_original = _terreno_original.duplicate()
+	return g
+
+
+## Cópia só com o mapa original (sem os aceiros do jogador).
+func copiar_original() -> Grade:
+	var g := copiar()
+	g.restaurar_original()
+	return g
