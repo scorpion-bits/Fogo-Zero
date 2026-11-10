@@ -5,6 +5,9 @@ Araraquara*. É um jogo e ferramenta de treinamento em que o fogo se espalha pel
 rural de acordo com o **clima real do dia** (vento, umidade e temperatura), e o jogador usa aceiros,
 caminhão-pipa e brigada para proteger a sede.
 
+**Jogue no navegador:** https://scorpionbits.com/Fogo-Zero/ (o modo demonstração fica no botão *Modo
+demonstração* ou na tecla **D**).
+
 > **Aviso:** este é um **modelo simplificado para educação e treinamento**. **Não** é uma ferramenta
 > operacional de combate a incêndio e não deve ser usado para tomar decisões reais. Em caso de fogo,
 > ligue **193 (Corpo de Bombeiros)** ou **199 (Defesa Civil)**.
@@ -276,7 +279,7 @@ godot --headless --path . --export-release "Web" exportar/web/index.html
 * Para testar localmente: `cd exportar/web && python3 -m http.server 8000` e depois abra `http://localhost:8000`.
 * No Web, o botão *Abrir PNG…* fica escondido, porque o navegador não dá acesso a arquivos do sistema. Os mapas
   de exemplo e o aleatório funcionam normalmente.
-* Testado com a Godot 4.7.2 num servidor local (Chromium). O clima real chegou pela API, o CSV de focos foi lido
+* Publicado no GitHub Pages (branch `gh-pages`) e testado com a Godot 4.7.2 no Chromium. O clima real chegou pela API, o CSV de focos foi lido
   e o modo demonstração terminou igual ao desktop: passo 149, 32,7 ha, sede salva. O console não mostrou erros.
   A versão Web baixa cerca de 40 MB, quase tudo no `index.wasm` da engine.
 

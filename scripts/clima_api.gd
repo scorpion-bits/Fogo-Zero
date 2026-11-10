@@ -5,10 +5,15 @@ extends Node
 
 signal leitura_recebida(leitura: LeituraClima)
 
+## Depois de uma falha, tenta de novo algumas vezes antes de esperar o próximo ciclo
+## (no navegador a primeira requisição às vezes falha enquanto a página ainda carrega).
+const ESPERAS_NOVA_TENTATIVA: Array[float] = [5.0, 15.0, 60.0]
+
 var config: SimulacaoConfig
 var _http: HTTPRequest
 var _timer: Timer
 var _ocupado := false
+var _tentativas := 0
 
 
 func iniciar(p_config: SimulacaoConfig) -> void:
@@ -61,6 +66,7 @@ func _on_concluido(resultado: int, codigo: int, _cabecalhos: PackedStringArray, 
 	l.online = true
 	l.mensagem = "Clima real de " + config.nome_local
 	_ocupado = false
+	_tentativas = 0
 	leitura_recebida.emit(l)
 
 
@@ -68,6 +74,9 @@ func _falhar(motivo: String) -> void:
 	_ocupado = false
 	push_warning("Clima: " + motivo + ". Usando valores padrão.")
 	leitura_recebida.emit(LeituraClima.offline(config, "Modo offline: " + motivo))
+	if _tentativas < ESPERAS_NOVA_TENTATIVA.size():
+		get_tree().create_timer(ESPERAS_NOVA_TENTATIVA[_tentativas]).timeout.connect(atualizar)
+		_tentativas += 1
 
 
 ## "2026-11-09T22:15" -> "09/11/2026 22:15"
