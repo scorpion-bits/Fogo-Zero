@@ -276,6 +276,9 @@ godot --headless --path . --export-release "Web" exportar/web/index.html
 * Para testar localmente: `cd exportar/web && python3 -m http.server 8000` e depois abra `http://localhost:8000`.
 * No Web, o botão *Abrir PNG…* fica escondido, porque o navegador não dá acesso a arquivos do sistema. Os mapas
   de exemplo e o aleatório funcionam normalmente.
+* Testado com a Godot 4.7.2 num servidor local (Chromium). O clima real chegou pela API, o CSV de focos foi lido
+  e o modo demonstração terminou igual ao desktop: passo 149, 32,7 ha, sede salva. O console não mostrou erros.
+  A versão Web baixa cerca de 40 MB, quase tudo no `index.wasm` da engine.
 
 Linux e Windows, também pela linha de comando:
 
