@@ -1,0 +1,127 @@
+class_name Ferramentas
+extends RefCounted
+## Recursos do jogador e as ações que ele aplica na simulação:
+## iniciar foco, abrir aceiro, caminhão-pipa e chamar a brigada (193).
+
+enum Tipo { FOCO, ACEIRO, PIPA, BRIGADA }
+
+signal brigada_chegou(centro: Vector2i, apagadas: int)
+
+## Uma chamada à brigada que ainda não chegou.
+class Chamada:
+	var centro: Vector2i
+	var passo_chegada: int
+
+var config: SimulacaoConfig
+var sim: SimulacaoFogo
+
+var orcamento := 0
+var cargas_pipa := 0
+var chamadas_brigada := 0
+var celulas_aceiro := 0
+var pipas_usadas := 0
+var brigadas_usadas := 0
+var apagadas_pipa := 0
+var apagadas_brigada := 0
+var chamadas_pendentes: Array[Chamada] = []
+
+
+func _init(p_config: SimulacaoConfig, p_sim: SimulacaoFogo) -> void:
+	config = p_config
+	sim = p_sim
+	reiniciar()
+
+
+func reiniciar() -> void:
+	orcamento = config.orcamento
+	cargas_pipa = config.cargas_pipa
+	chamadas_brigada = config.chamadas_brigada
+	celulas_aceiro = 0
+	pipas_usadas = 0
+	brigadas_usadas = 0
+	apagadas_pipa = 0
+	apagadas_brigada = 0
+	chamadas_pendentes.clear()
+
+
+func iniciar_foco(celula: Vector2i) -> bool:
+	return sim.iniciar_foco(celula)
+
+
+## Abre aceiro nas células da lista enquanto houver orçamento. Retorna quantas viraram aceiro.
+func abrir_aceiro(celulas: Array[Vector2i]) -> int:
+	var abertas := 0
+	for c in celulas:
+		if orcamento < config.custo_aceiro_celula:
+			break
+		if sim.abrir_aceiro(c):
+			orcamento -= config.custo_aceiro_celula
+			celulas_aceiro += 1
+			abertas += 1
+	return abertas
+
+
+func usar_pipa(celula: Vector2i) -> bool:
+	if cargas_pipa <= 0 or not sim.grade.contem(celula):
+		return false
+	cargas_pipa -= 1
+	pipas_usadas += 1
+	apagadas_pipa += sim.molhar_area(celula, config.raio_pipa, config.passos_molhada)
+	return true
+
+
+func chamar_brigada(celula: Vector2i) -> bool:
+	if chamadas_brigada <= 0 or not sim.grade.contem(celula):
+		return false
+	chamadas_brigada -= 1
+	brigadas_usadas += 1
+	var chamada := Chamada.new()
+	chamada.centro = celula
+	chamada.passo_chegada = sim.passo + config.atraso_brigada
+	chamadas_pendentes.append(chamada)
+	return true
+
+
+## Chame depois de cada passo da simulação: faz a brigada agir quando ela chega.
+func processar_passo() -> void:
+	for chamada in chamadas_pendentes.duplicate():
+		if sim.passo >= chamada.passo_chegada:
+			chamadas_pendentes.erase(chamada)
+			var n := sim.molhar_area(chamada.centro, config.raio_brigada, config.passos_molhada)
+			apagadas_brigada += n
+			brigada_chegou.emit(chamada.centro, n)
+
+
+func pode_usar(tipo: Tipo) -> bool:
+	match tipo:
+		Tipo.ACEIRO: return orcamento >= config.custo_aceiro_celula
+		Tipo.PIPA: return cargas_pipa > 0
+		Tipo.BRIGADA: return chamadas_brigada > 0
+	return true
+
+
+## Linha entre duas células sem "furos" diagonais (4-conectada). Uma linha só com passos
+## diagonais deixaria o fogo passar, porque a vizinhança é de 8 células.
+static func linha_sem_furos(a: Vector2i, b: Vector2i) -> Array[Vector2i]:
+	var pontos: Array[Vector2i] = [a]
+	var atual := a
+	var dx := absi(b.x - a.x)
+	var dy := -absi(b.y - a.y)
+	var sx := 1 if a.x < b.x else -1
+	var sy := 1 if a.y < b.y else -1
+	var erro := dx + dy
+	while atual != b:
+		var e2 := 2 * erro
+		var passo_x := e2 >= dy
+		var passo_y := e2 <= dx
+		if passo_x:
+			erro += dy
+			atual.x += sx
+		if passo_y:
+			erro += dx
+			if passo_x:
+				# Passo diagonal: inclui a célula do canto para fechar o furo.
+				pontos.append(atual)
+			atual.y += sy
+		pontos.append(atual)
+	return pontos

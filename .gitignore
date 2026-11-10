@@ -1,0 +1,8 @@
+.godot/
+/android/
+ferramentas/.venv/
+__pycache__/
+exportar/
+*.tmp
+override.cfg
+capturas/*.mp4
