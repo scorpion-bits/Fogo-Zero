@@ -1,19 +1,22 @@
 extends SceneTree
 ## Gera as capturas de tela das telas do jogo (menu, fases, preparação, incêndio, resultado e
 ## modo personalizado). Renderiza numa SubViewport de 1920×1080, então o tamanho da janela não
-## importa. Precisa de janela (não use --headless):
+## importa. O progresso salvo é guardado no começo e devolvido no fim. Precisa de janela (não use
+## --headless):
 ##     godot --path . -s testes/capturar_tela.gd -- --pasta=capturas
 
 var _principal: Node
 var _tela: SubViewport
 var _quadro := 0
 var _pasta := "capturas"
+var _progresso_salvo := PackedByteArray()
 
 
 func _initialize() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--pasta="):
 			_pasta = arg.trim_prefix("--pasta=")
+	_progresso_salvo = FileAccess.get_file_as_bytes(Progresso.ARQUIVO)
 	Progresso.apagar()
 	Progresso.registrar("fase1", 3, 1707)
 	Progresso.registrar("fase2", 2, 1210)
@@ -49,7 +52,7 @@ func _process(_delta: float) -> bool:
 		300: _salvar("04_incendio.png")
 		301: _principal.set("velocidade", 4.0)
 		1500:
-			Progresso.apagar()
+			_devolver_progresso()
 			print("A partida não terminou a tempo.")
 			return true
 	if _quadro > 301 and _quadro < 1500 and (_principal.get_node("Resultado") as Control).visible:
@@ -58,9 +61,14 @@ func _process(_delta: float) -> bool:
 		_quadro = 1600
 	if _quadro == 1620:
 		_salvar("06_personalizado.png")
-		Progresso.apagar()
+		_devolver_progresso()
 		return true
 	return false
+
+
+func _devolver_progresso() -> void:
+	var arquivo := FileAccess.open(Progresso.ARQUIVO, FileAccess.WRITE)
+	arquivo.store_buffer(_progresso_salvo)
 
 
 func _salvar(nome: String) -> void:

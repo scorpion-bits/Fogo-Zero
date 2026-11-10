@@ -52,6 +52,8 @@ func configurar(p_sim: SimulacaoFogo, p_ferramentas: Ferramentas, p_textura: Tex
 	ferramentas = p_ferramentas
 	textura = p_textura
 	veiculos = Veiculos.new(sim)
+	# Um arrasto começado na partida anterior não continua nesta.
+	_arrastando = false
 	_terreno.texture = textura
 	_material.set_shader_parameter("dados", textura)
 	_material.set_shader_parameter("tamanho", Vector2(sim.largura, sim.altura))
@@ -134,7 +136,7 @@ func _draw() -> void:
 	var fonte := get_theme_default_font()
 
 	# Zonas de risco: o fogo começa em algum ponto dentro delas.
-	var pulso := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 300.0) if destacar_zonas else 0.0
+	var pulso := 0.5 + 0.5 * sin(tempo * 3.3) if destacar_zonas else 0.0
 	for z in zonas:
 		var centro := centro_celula(z)
 		var raio := (raio_zona + 0.5) * cel

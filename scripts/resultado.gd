@@ -6,7 +6,6 @@ extends Control
 signal jogar_novamente
 signal proxima_pedida
 signal voltar_pedido
-signal fechado
 
 const COR_SUAVE := Color(0.64, 0.6, 0.55)
 const COR_DESTAQUE := Color("#F28C28")
@@ -70,9 +69,7 @@ func mostrar(dados: Dictionary, opcoes: Dictionary = {}) -> void:
 	var botoes := HBoxContainer.new()
 	botoes.alignment = BoxContainer.ALIGNMENT_END
 	botoes.add_theme_constant_override("separation", 12)
-	var fechar := Ui.botao("Ver o mapa", func() -> void:
-		hide()
-		fechado.emit(), 20)
+	var fechar := Ui.botao("Ver o mapa", hide, 20)
 	botoes.add_child(fechar)
 	botoes.add_child(Ui.botao(opcoes.get("voltar", "Menu"), voltar_pedido.emit, 20))
 	if opcoes.get("proxima", false):

@@ -19,6 +19,7 @@ var _ultimo_aceiro := 0
 
 
 func _ready() -> void:
+	ligado = Progresso.som_ligado()
 	_rng.seed = 7
 	_sons["agua"] = _wav(_agua())
 	_sons["sirene"] = _wav(_sirene())
@@ -65,6 +66,7 @@ func ambiente(celulas_fogo: int, vento_kmh: float, delta: float) -> void:
 
 func alternar() -> bool:
 	ligado = not ligado
+	Progresso.definir_som(ligado)
 	if not ligado:
 		for p in _efeitos:
 			p.stop()

@@ -87,7 +87,7 @@ A missão termina quando o fogo acaba (e não há mais eventos) ou quando o fogo
 | Pausar / continuar | **Espaço**, ou os botões Pausa, 1×, 2× e 4× |
 | Recomeçar a missão | **R** (mesma missão, mesmo sorteio) |
 | Voltar | **Esc** ou o botão *Menu* |
-| Ligar / desligar o som | **M** ou o botão *Som* |
+| Ligar / desligar o som | **M** ou o botão *Som* (a escolha fica salva) |
 
 ### Campanha, dificuldade e pontuação
 
@@ -433,7 +433,7 @@ recursos/    simulacao_config.tres, tema.tres, mapa.gdshader
 mapas/       exemplo_terreno.png, exemplo_secura.png, drone_teste_*.png (saída do pipeline)
 dados/       focos_exemplo_ficticio.csv, teste_sintetico.tif, teste_sintetico_rgb.png
 ferramentas/ converter_mapa.py, gerar_mapa_exemplo.py, gravar_demo.sh, requirements.txt
-testes/      teste_simulacao.gd, calibrar_fases.gd, teste_mapa_real.gd, salvar_sons.gd, quadros_demo.gd,
+testes/      teste_simulacao.gd, medir_hud.gd, calibrar_fases.gd, teste_mapa_real.gd, salvar_sons.gd, quadros_demo.gd,
              capturar_tela.gd, gravar_demo.gd
 capturas/    capturas de tela e vídeo da demonstração
 ```
@@ -466,8 +466,8 @@ Na última execução, um passo mais o desenho levou cerca de **3,2 ms** com 1.1
 mesmo tempo, folgado para 60 fps.
 
 `testes/quadros_demo.gd -- --imagens=PASTA` salva quadros do modo demonstração e serve para ajustar o
-roteiro. `testes/capturar_tela.gd -- --pasta=capturas` gera as capturas de tela (ele apaga o progresso
-salvo), `testes/gravar_demo.gd` grava o vídeo, `testes/calibrar_fases.gd` mostra a dificuldade de cada fase
+roteiro. `testes/capturar_tela.gd -- --pasta=capturas` gera as capturas de tela (o progresso salvo é
+guardado e devolvido no fim), `testes/medir_hud.gd` confere se os painéis do jogo cabem na tela, `testes/gravar_demo.gd` grava o vídeo, `testes/calibrar_fases.gd` mostra a dificuldade de cada fase
 e `testes/teste_mapa_real.gd -- --lat=… --lon=… --pasta=…` baixa um mapa real e salva a foto e a grade
 (precisa de internet).
 

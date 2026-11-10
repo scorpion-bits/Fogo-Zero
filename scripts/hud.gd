@@ -133,7 +133,7 @@ func definir_velocidade(valor: float) -> void:
 
 
 func definir_som(ligado: bool) -> void:
-	_btn_som.text = "Som: ligado (M)" if ligado else "Som: desligado (M)"
+	_btn_som.text = "Som: ligado (M)" if ligado else "Som: mudo (M)"
 
 
 ## Ajusta o HUD para a missão: título, ferramenta de foco só no modo livre, cenário manual idem.
@@ -336,7 +336,7 @@ func _montar_direita() -> void:
 		velocidades.add_child(b)
 	simulacao.add_child(velocidades)
 	var linha_sim := HBoxContainer.new()
-	var recomecar := _botao("Recomeçar a missão (R)", reiniciar_pedido.emit)
+	var recomecar := _botao("Recomeçar (R)", reiniciar_pedido.emit)
 	recomecar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	linha_sim.add_child(recomecar)
 	_btn_som = _botao("Som: ligado (M)", som_pedido.emit)

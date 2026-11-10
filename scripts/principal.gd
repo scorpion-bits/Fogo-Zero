@@ -51,6 +51,7 @@ func _ready() -> void:
 	add_child(_sons)
 	_hud.configurar(config)
 	_hud.som_pedido.connect(_alternar_som)
+	_hud.definir_som(_sons.ligado)
 	_hud.ferramenta_escolhida.connect(_escolher_ferramenta)
 	_hud.velocidade_escolhida.connect(_escolher_velocidade)
 	_hud.reiniciar_pedido.connect(reiniciar)
@@ -312,8 +313,10 @@ func _encerrar_demo() -> void:
 	dados.merge(Narrador.avaliar(sim, ferramentas, -1, false, true), true)
 	roteiro.ao_terminar(sim)
 	_hud.definir_legenda(roteiro.legenda)
+	var deste := roteiro
 	await get_tree().create_timer(2.5).timeout
-	if roteiro == null:
+	# A demonstração pode ter sido fechada ou recomeçada durante a espera.
+	if roteiro != deste:
 		return
 	_resultado.mostrar(dados, {"voltar": "Menu"})
 	_sons.tocar("vitoria" if dados["sede_salva"] else "derrota", -2.0)

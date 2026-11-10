@@ -25,6 +25,9 @@ const LOCAIS := [
 	["Usina e canaviais, Américo Brasiliense", -21.7294, -48.0987],
 ]
 
+## Mínimo de células de cana ou pasto para jogar no modo Missão.
+const MIN_VEGETACAO_MISSAO := 400
+
 var config: SimulacaoConfig
 
 var _fonte := Fonte.EXEMPLO
@@ -485,6 +488,12 @@ func _on_arquivo_web(argumentos: Array, secura: bool) -> void:
 func _jogar() -> void:
 	if _grade == null:
 		return
+	if not _livre:
+		# O fogo da missão começa em cana ou pasto: sem isso não há incêndio para enfrentar.
+		var vegetacao := _grade.terreno.count(Terreno.Tipo.CANA) + _grade.terreno.count(Terreno.Tipo.PASTO)
+		if vegetacao < MIN_VEGETACAO_MISSAO:
+			_lbl_info.text = _lbl_info.text.split("\n")[0] + "\nEste mapa quase não tem cana ou pasto para o fogo começar. Escolha outro lugar ou use o modo Livre."
+			return
 	var m := Missao.new()
 	m.id = "personalizado"
 	m.numero = 0

@@ -38,6 +38,8 @@ var _pedido_osm := PackedStringArray()
 var _corpo_osm := ""
 var _tentativas_osm := 0
 var _ocupado := false
+## Número do download atual: uma nova tentativa agendada por um download antigo é ignorada.
+var _download := 0
 
 
 func _ready() -> void:
@@ -64,6 +66,7 @@ func baixar(latitude: float, longitude: float) -> void:
 	if _ocupado:
 		return
 	_ocupado = true
+	_download += 1
 	var lado_m := lado_celulas * metros_por_celula
 	var dlat := lado_m / 111320.0
 	var dlon := lado_m / (111320.0 * cos(deg_to_rad(latitude)))
@@ -120,7 +123,10 @@ func _on_osm(resultado: int, codigo: int, _cab: PackedStringArray, corpo: Packed
 	if not dados is Dictionary and _tentativas_osm < 2 and _ocupado:
 		# O servidor público às vezes recusa por excesso de pedidos: tenta mais uma vez.
 		andamento.emit("O OpenStreetMap está ocupado, tentando de novo…")
-		get_tree().create_timer(3.0).timeout.connect(_pedir_osm)
+		var deste := _download
+		get_tree().create_timer(3.0).timeout.connect(func() -> void:
+			if _ocupado and _download == deste:
+				_pedir_osm())
 		return
 	if not dados is Dictionary:
 		andamento.emit("O OpenStreetMap não respondeu (código %d): usando só a foto de satélite." % codigo)

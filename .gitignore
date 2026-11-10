@@ -5,3 +5,4 @@ __pycache__/
 exportar/
 *.tmp
 override.cfg
+.claude/

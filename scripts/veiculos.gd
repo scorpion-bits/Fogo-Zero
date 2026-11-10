@@ -93,6 +93,8 @@ func desenhar(alvo: MapaView, f: Ferramentas, tempo: float, progresso_passo: flo
 	var cel := alvo.tamanho_celula()
 	var origem := alvo.area_mapa().position
 	# Viaturas da brigada a caminho.
+	if f.chamadas_pendentes.is_empty():
+		_rotas.clear()
 	for chamada in f.chamadas_pendentes:
 		var chave := chamada.get_instance_id()
 		if not _rotas.has(chave):
