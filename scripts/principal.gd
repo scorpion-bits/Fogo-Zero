@@ -36,6 +36,10 @@ var _dialogo: FileDialog
 func _ready() -> void:
 	semente = config.semente
 	_gravando_video = "--write-movie" in OS.get_cmdline_args()
+	if _gravando_video:
+		# Durante a gravação, nenhum clique, tecla ou rolagem pode mudar o vídeo.
+		get_viewport().gui_disable_input = true
+		set_process_unhandled_input(false)
 	_leitura = LeituraClima.offline(config, "Buscando o clima de %s…" % config.nome_local)
 
 	_hud.configurar(config)

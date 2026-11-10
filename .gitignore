@@ -5,4 +5,3 @@ __pycache__/
 exportar/
 *.tmp
 override.cfg
-capturas/*.mp4

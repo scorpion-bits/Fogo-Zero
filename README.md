@@ -13,6 +13,12 @@ caminhão-pipa e brigada para proteger a sede.
 
 ![Jogo](capturas/01_jogo.png)
 
+| Modo demonstração | Tela de resultado |
+|---|---|
+| ![Demonstração](capturas/02_demo.png) | ![Resultado](capturas/03_resultado.png) |
+
+Vídeo da demonstração: [`capturas/demo.mp4`](capturas/demo.mp4)
+
 ---
 
 ## O que o protótipo demonstra
@@ -245,7 +251,9 @@ vindo do noroeste). O roteiro dura uns 30 s:
 Legendas no topo explicam cada etapa e, no fim, aparece a tela de resultado. O roteiro fica em `scripts/demo.gd`,
 com tudo amarrado aos passos da simulação, então o vídeo sai sempre igual.
 
-Para gravar o vídeo em 1920×1080 a 60 fps (precisa do ffmpeg):
+O vídeo já gravado está em `capturas/demo.mp4` (1920×1080, 60 fps, 37 s: 30 s de simulação mais a tela de
+resultado). Para gravar de novo (precisa do ffmpeg). A cena é renderizada fora da tela, numa SubViewport,
+então o tamanho da janela e o mouse não interferem, e a gravação leva uns 3 minutos:
 
 ```bash
 ferramentas/gravar_demo.sh capturas/demo.mp4
@@ -306,7 +314,7 @@ recursos/    simulacao_config.tres, tema.tres
 mapas/       exemplo_terreno.png, exemplo_secura.png, drone_teste_*.png (saída do pipeline)
 dados/       focos_exemplo_ficticio.csv, teste_sintetico.tif, teste_sintetico_rgb.png
 ferramentas/ converter_mapa.py, gerar_mapa_exemplo.py, gravar_demo.sh, requirements.txt
-testes/      teste_simulacao.gd, quadros_demo.gd
+testes/      teste_simulacao.gd, quadros_demo.gd, capturar_tela.gd, gravar_demo.gd
 capturas/    capturas de tela e vídeo da demonstração
 ```
 
@@ -334,7 +342,8 @@ O teste confere:
 Na última execução, um passo mais o desenho levou cerca de **3,2 ms** com 1.157 células em chamas ao
 mesmo tempo, folgado para 60 fps.
 
-`testes/quadros_demo.gd -- --imagens=PASTA` salva quadros do modo demonstração e serve para ajustar o roteiro.
+`testes/quadros_demo.gd -- --imagens=PASTA` salva quadros do modo demonstração e serve para ajustar o
+roteiro. `testes/capturar_tela.gd` gera `capturas/01_jogo.png` e `testes/gravar_demo.gd` grava o vídeo.
 
 ---
 
